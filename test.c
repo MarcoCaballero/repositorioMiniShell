@@ -6,11 +6,9 @@
 #include <errno.h>
 #include <string.h>
 #include "parser.h"
-#define _cd "cd"
 
 
 int main(void) {
-	// Probando rama-Pedro
 	char buf[1024];
 	tline * line;
 	int i,j;
@@ -34,25 +32,35 @@ int main(void) {
 
 	printf("msh> ");	
 	while (fgets(buf, 1024, stdin)) {
+		//printf("%s", currentDirectory);
+		//printf("%s", defaultDirectory);
 		
 
 		line = tokenize(buf);
 
-                int commandsNumber = line->ncommands;
-		firstCommandArguments = line->commands[0].argv;
-
 		if (line==NULL) {
+			fprintf(stderr, "Vacío\n");
 			continue;
 		}
-                
+		//int commandsNumber = line->ncommands;
+		
 
-                if(commandsNumber!=0){
+                if(line->ncommands!=0){
+		firstCommandArguments = line->commands[0].argv;
                         //comandos propios
-		        if(strcmp(firstCommandArguments[0], _cd)==0){
-		        printf("HAS DADO CON LA PUTA CLAVE\n");
-                        
+		        if(strcmp(firstCommandArguments[0], "cd")==0){
+				fprintf(stderr,"Arg: %d\n", line->commands[0].argc);
+		        	if(line->commands[0].argc < 2){
+					fprintf(stderr,"Dir: %s\n", defaultDirectory);
+					//strcpy(auxDirectory, defaultDirectory);
+					chdir(defaultDirectory);
+				}else{
+					fprintf(stderr,"Dir: %s\n", firstCommandArguments[1]);
+					//strcpy(auxDirectory, firstCommandArguments[1]);
+					chdir(firstCommandArguments[1]);
+				}
 			
-                //comandos ejecutables	
+                	//comandos ejecutables	
 		        }else{
                 
                                 if (line->redirect_input != NULL) {
@@ -134,18 +142,17 @@ int main(void) {
 							        printf("El comando no se ejecutó correctamente\n");
 					        //exit(0);
 				        }
-			        //}
+			        }
 			        // Restauramos los ficheros de redirección
 			        dup2(backup_in, fileno(stdin));
 			        dup2(backup_out, fileno(stdout));
 			        dup2(backup_err, fileno(stderr));
-		                }
-                        }
+		     }
                
                 }else{
                         printf("msh> ");
                         continue;
-                }        
+                }
 	printf("msh> ");	
 	}
 	return 0;
