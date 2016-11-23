@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include "parser.h"
-#define _cd "cd"
+
 
 
 int main(void) {
@@ -31,7 +31,8 @@ int main(void) {
 	signal(SIGQUIT, SIG_IGN); 
 
 
-	printf("msh> ");	
+	printf("msh> ");
+	
 	while (fgets(buf, 1024, stdin)) {
 		
 
@@ -47,11 +48,11 @@ int main(void) {
 
                 if(commandsNumber!=0){
                         //comandos propios
-		        if(strcmp(firstCommandArguments[0], _cd)==0){
-		        printf("HAS DADO CON LA PUTA CLAVE\n");
+		        if(strcmp(firstCommandArguments[0], "cd")==0){
+		                
                         
 			
-                //comandos ejecutables	
+                        //comandos ejecutables	
 		        }else{
                 
                                 if (line->redirect_input != NULL) {
@@ -66,7 +67,7 @@ int main(void) {
 				                // Si no está vacío, el fichero de entrada es "file"
 				                int fileNumberEnter = fileno(file);
 				                //Duplica lo que hay dentro del archivo
-				                dup2(fileNumberEnter, fileno(stdin));
+				                dup2(fileNumberEnter, 0);
 				                fclose(file);
 			                }
 		                }
@@ -81,7 +82,7 @@ int main(void) {
 			                }else{
 				                // El fichero se salida será "file"
 				                int fileNumberExit = fileno(file);
-				                dup2(fileNumberExit, fileno(stdout));
+				                dup2(fileNumberExit, 1);
 				                fclose(file);
 			                }
 		                }
@@ -96,24 +97,26 @@ int main(void) {
 			                }else{
 				                // El fichero de error es ahora "file"
 				                int FileNumberError = fileno(file);
-				                dup2(FileNumberError, fileno(stderr)); //Ahora la salida de error es por el descriptor del archivo.
+				                dup2(FileNumberError, 2); //Ahora la salida de error es por el descriptor del archivo.
 				                fclose(file);
 			                }
 		                }
 		                if (line->background) {
 			                printf("comando a ejecutarse en background\n");
 		                } 
+                                
+                                
+                            
 		                for (i=0; i<line->ncommands; i++) {
 			                printf("orden %d (%s):\n", i, line->commands[i].filename);
-			        //for (j=0; j<line->commands[i].argc; j++) {
-				        //printf("  argumento %d: %s\n", j, line->commands[i].argv[j]);
+			        
 				        pid = fork();
 				        if (pid < 0) { /* Error */
 					        fprintf(stderr, "Falló el fork().\n%s\n", strerror(errno));
 					        exit(1);
 				        }
 				        else if (pid == 0) { /* Proceso Hijo */
-					        printf("  argumento %d: %s\n", 1, line->commands[i].argv[1]);
+					       
 					        execv(line->commands[i].filename, line->commands[i].argv);
 					        //Si llega aquí es que se ha producido un error en el execvp
 					        printf("Error al ejecutar el comando: \n%s\n", strerror(errno));
