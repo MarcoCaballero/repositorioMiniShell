@@ -10,45 +10,49 @@
 
 
 int main(void) {
+        //manejo de cmdline and command
 	char buf[1024];
 	tline * line;
-	int i,j,k;
-	pid_t pid;
-	int status;
+        //variables auxiliares
+	int i,j,k,jp,commandsNumber,status;
+	pid_t pid;	
+        char **firstCommandArguments;
 	// Para las redirecciones de entrada, salia o error
 	FILE *file;
 	int backup_in = dup(fileno(stdin));
 	int backup_out = dup(fileno(stdout));
 	int backup_err = dup(fileno(stderr));
-	// Ruta por defecto al ejecutar el comando cd
+	// Variables para el manejo del comando cd
 	char *defaultDirectory = getenv("HOME");
 	char auxDirectory[1024]; // Auxiliar para el manejo del cd
 	char currentDirectory[1024]; // Para almacenar el directorio actual
 	getcwd(currentDirectory, sizeof(currentDirectory));
-	char **firstCommandArguments;
+	
         //para los pipes
+        int *fd;
         
 	//Ignoramos las señales SIGINT y SIGQUIT
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN); 
 
 
-	printf("msh> ");
+	printf("%s-msh> ", currentDirectory);
 	
 	while (fgets(buf, 1024, stdin)) {
-		//printf("%s", currentDirectory);
-		//printf("%s", defaultDirectory);
 		
-
+                
 		line = tokenize(buf);
 
 		if (line==NULL) {
 			fprintf(stderr, "Vacío\n");
 			continue;
 		}
-		int commandsNumber = line->ncommands;
-		int fd[commandsNumber*2];// pipe1 [0][0-1] pipe2[1][0-1]....
 
+                //COMPROBAR PROCESOS EN BACKGROUND (TERMINADOS ??)
+		commandsNumber = line->ncommands;
+		
+                fd = malloc((commandsNumber*2)*sizeof(int*));        
+                
                 if(line->ncommands!=0){
 		firstCommandArguments = line->commands[0].argv;
                         //comandos propios
@@ -64,10 +68,13 @@ int main(void) {
 					//strcpy(auxDirectory, firstCommandArguments[1]);
 					chdir(firstCommandArguments[1]);
 				}
-			
+                        
+			        getcwd(currentDirectory, sizeof(currentDirectory));
                 	//comandos ejecutables	
 
-		        }else{
+		        }if(strcmp(firstCommandArguments[0], "jobs")==0){
+                                //mostrar [arraylist_index] status 
+                        }else{
                 
                                 if (line->redirect_input != NULL) {
 			                printf("redirección de entrada: %s\n", line->redirect_input);
@@ -116,7 +123,7 @@ int main(void) {
 			                }
 		                }
 		                if (line->background) {
-			                printf("comando a ejecutarse en background\n");
+			                printf("comando a ejecutarse en background-%d\n",line->background);
 		                } 
                                 
                                
@@ -132,7 +139,7 @@ int main(void) {
                                 
                                
                                 
-                                int jp = 0;
+                                jp = 0;
                                 
 		                for (i=0; i<line->ncommands; i++) {
 			                //printf("orden %d (%s):\n", i, line->commands[i].filename);
@@ -193,8 +200,23 @@ int main(void) {
                                 for (k=0; k<2*line->ncommands;k++){
                                         close(fd[k]);
                                 }
-                                for (k=0; k<=line->ncommands;k++)
-                                        wait(&status);
+                                
+                                
+                                        if (line->background != 1) {
+                                             for (k=0; k<=line->ncommands;k++){                                               	
+                                                wait(&status);
+                                             }
+		                        } else {
+                                                printf("[1]\n");
+                                                 //dup2(char pid, 1)                                       
+                                                //execv("pidof " , ls)  
+                                                 // comprobar si mas de un XXXX en pid, coger el mayor
+                                                 //añadir nodo a arraylist[array_length]
+                                                 //mostrar [array_length - 1]     
+                                        }
+                                
+                                                              
+                              
                                 
                                
 					        //exit(0);
@@ -205,10 +227,10 @@ int main(void) {
 		     }
                
                 }else{
-                        printf("msh> ");
+                        printf("%s-msh> ", currentDirectory);
                         continue;
                 }
-	printf("msh> ");	
+	printf("%s-msh> ", currentDirectory);	
 	}
 	return 0;
 }
