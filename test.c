@@ -46,8 +46,8 @@ int main(void) {
 			fprintf(stderr, "Vacío\n");
 			continue;
 		}
-		//int commandsNumber = line->ncommands;
-		int fd[line->ncommands * 2];// pipe1 [0-1] pipe2[2-3]....
+		int commandsNumber = line->ncommands;
+		int fd[commandsNumber][2];// pipe1 [0][0-1] pipe2[1][0-1]....
 
                 if(line->ncommands!=0){
 		firstCommandArguments = line->commands[0].argv;
@@ -120,14 +120,17 @@ int main(void) {
 		                } 
                                 
                                
-                                for(i=0;i<line->ncommands;i++){
-                                        if(pipe(fd + i*2)<0){
-                                                fprintf(stderr, "Imposilbe to pipe().\n%s\n", strerror(errno));                                        exit(0);                 
-                                        }
+                                for (j=0;j<line->ncommands;j++){
+                                        if(pipe(fd[j])<0){
+                                                fprintf(stderr, "Imposilbe to pipe().\n%s\n", strerror(errno));     
+                                                exit(0);   
+                                        } 
+     
+                                
                                 }
                             
-                                int jp = 0;
                                 
+                                //int jp = 0;
 		                for (i=0; i<line->ncommands; i++) {
 			                printf("orden %d (%s):\n", i, line->commands[i].filename);
 
@@ -146,29 +149,38 @@ int main(void) {
                                                
              
                                                 if(i!=0){
-                                                        for (k=0; k<2*line->ncommands;k++){
-                                                                if(k!=jp - 2){
-                                                                close(fd[k]);                                                    
-                                                                }  
+                                                       for (j=0;j<line->ncommands;j++){  
+                                                                for (k=0;k<2;k++){  
+                                                                        if(j!=i && k!=0){
+                                                                                 close(fd[j][k]);  
+                                                                        }
+                                                                }
                                                         }
+                                                                
+                                                                                                                 
+                                                             
                                                         printf("No soy primero- %d\n", i); 
-                                                        if(dup2(fd[jp - 2],0)<0){
-                                                                 fprintf(stderr, "Imposilbe to dup2 no prim.\n%s\n", strerror(errno));                                                          exit(0);                 
+                                                        if(dup2(fd[i][0],0)<0){
+                                                                 fprintf(stderr, "Imposilbe to dup2 no prim.\n%s\n", strerror(errno));                                                        exit(0);                 
                                                         }
-                                                        close(fd[jp - 2]); 
+                                                        close(fd[i][0]); 
 				     
                                                 }
                                                 if(i!=line->ncommands-1){
-                                                        for (k=0; k<2*line->ncommands;k++){
-                                                                if(k!=jp + 1){
-                                                                close(fd[k]);                                                    
-                                                                }  
-                                                        }
+                                                        
+                                                        for (j=0;j<line->ncommands;j++){  
+                                                                for (k=0;k<2;k++){    
+                                                                        if(j!=i && k!=1){
+                                                                                 close(fd[j][k]);  
+                                                                        }
+                                                                }
+                                                        }                                                
+                                                              
                                                         printf("No soy ultimo- %d\n", i); 
-                                                         if(dup2(fd[jp + 1], 1)<0){
-                                                                 fprintf(stderr, "Imposilbe to dup2 no ult().\n%s\n", strerror(errno));                                                         exit(0);                 
+                                                        if(dup2(fd[i][1], 1)<0){
+                                                                fprintf(stderr, "Imposilbe to dup2 no ult().\n%s\n", strerror(errno));                                                       exit(0);                 
                                                          }
-				                       close(fd[jp + 1]);     
+				                         close(fd[i][1]);     
                                                 }
                                                 
                                               
@@ -190,6 +202,7 @@ int main(void) {
 				        else{
                                                  
                                                 printf("PADRE\n");
+                                                //waitpid(pid, NULL, 0);
                                                 /*for (k=0; k<2*line->ncommands;k++){
                                                         close(fd[k]);
                                                 }
@@ -203,7 +216,7 @@ int main(void) {
                                                 printf("PADRE TRAS WAIT\n");
                                                 
                                                 printf("PADRE CIERRA FDS\n");        
-				                //waitpid(pid, NULL, 0);
+				                waitpid(pid, NULL, 0);
 				                if (WIFEXITED(status) != 0)
 				                if (WEXITSTATUS(status) != 0)
 				                printf("El comando no se ejecutó correctamente\n");-*/
@@ -214,18 +227,29 @@ int main(void) {
 
 
                                 
-                                jp+=2;
+                                //jp+=2;
 			        }
 			        // Restauramos los ficheros de redirección
                                 printf("NUEVO PATER\n");
                                 
-                                for (k=0; k<2*line->ncommands;k++){
-                                        close(fd[k]);
+                                
+                                for (j=0;j<line->ncommands;j++){  
+                                                                
+                                        close(fd[j][0]); 
+                                        close(fd[j][1]); 
+                                                                
                                 }
+
+                                                              
                                 for (k=0; k<=line->ncommands;k++)
                                         wait(&status);
+
+                                if (WIFEXITED(status) != 0)
+				        if (WEXITSTATUS(status) != 0)
+				                printf("El comando no se ejecutó correctamente\n");
                                 
                                
+                                
 					        //exit(0);
 			        dup2(backup_in, fileno(stdin));
 			        dup2(backup_out, fileno(stdout));
