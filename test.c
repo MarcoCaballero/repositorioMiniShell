@@ -16,7 +16,7 @@ void compruebaBGfin(int index, pid_t *lista, char**listaLineas){
 int kpid, status, k;      
         for(k=0;k<index;k++){
                if((kpid=waitpid(lista[k],&status,WNOHANG))>0){
-                        printf("[%d] - %d             %s\n", k+1, lista[k],listaLineas[k]);
+                        printf("[%d]    %d    HECHO         %s\n", k+1, lista[k],listaLineas[k]);
                 }                
                         
         }
@@ -103,7 +103,7 @@ int main(void) {
                                 
                                  for(k=0;k<indexBG;k++){
                                          if((kpid=waitpid(lista[k],&status,WNOHANG))<=0){
-                                                printf("[%d] - %d             %s\n", k+1, lista[k],listaLineas[k]);
+                                                printf("[%d]    %d   EJECUTANDO          %s\n", k+1, lista[k],listaLineas[k]);
                                         }                
                         
                                 }
@@ -155,9 +155,7 @@ int main(void) {
 				                fclose(file);
 			                }
 		                }
-		                if (line->background) {
-			                printf("comando a ejecutarse en background-%d\n",line->background);
-		                } 
+		                
                                 
                                
                                 for (j=0;j<line->ncommands;j++){
@@ -246,7 +244,7 @@ int main(void) {
                                               lista[indexBG] = test;
                                               strcpy(listaLineas[indexBG],strtok(buf,"&"));
                                               indexBG++; 
-                                              printf("[%d]-%d\n",indexBG, test);
+                                              printf("[%d]    %d\n",indexBG, test);
                                                 
                                                  
                                         }
