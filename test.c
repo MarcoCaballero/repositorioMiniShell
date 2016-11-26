@@ -9,12 +9,28 @@
 
 
 
+
+void compruebaBGfin(int index, pid_t *lista, char**listaLineas);
+
+void compruebaBGfin(int index, pid_t *lista, char**listaLineas){
+int kpid, status, k;      
+        for(k=0;k<index;k++){
+               if((kpid=waitpid(lista[k],&status,WNOHANG))>0){
+                        printf("[%d] - %d             %s\n", k+1, lista[k],listaLineas[k]);
+                }                
+                        
+        }
+
+
+}
+
 int main(void) {
         //manejo de cmdline and command
 	char buf[1024];
 	tline * line;
+       
         //variables auxiliares
-	int i,j,k,jp,commandsNumber,status;
+	int i,j,k,jp,commandsNumber,status, indexBG,kpid;
 	pid_t pid;	
         char **firstCommandArguments;
 	// Para las redirecciones de entrada, salia o error
@@ -30,14 +46,20 @@ int main(void) {
 	
         //para los pipes
         int *fd;
+
+        //Procesos bg
+        pid_t *lista;
+        int test;
+        char **listaLineas;
         
 	//Ignoramos las señales SIGINT y SIGQUIT
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN); 
-
-
-	printf("%s-msh> ", currentDirectory);
-	
+        
+        indexBG = 0;
+	printf("-msh> ");
+       lista = (pid_t*)malloc(sizeof(pid_t*));
+       listaLineas = (char**)malloc(sizeof(char**));
 	while (fgets(buf, 1024, stdin)) {
 		
                 
@@ -49,9 +71,12 @@ int main(void) {
 		}
 
                 //COMPROBAR PROCESOS EN BACKGROUND (TERMINADOS ??)
+                compruebaBGfin(indexBG,lista,listaLineas);
 		commandsNumber = line->ncommands;
 		
-                fd = malloc((commandsNumber*2)*sizeof(int*));        
+                fd = (int*)malloc((commandsNumber*2)*sizeof(int*)); 
+                lista = (pid_t*)realloc(lista,(indexBG+1)*sizeof(pid_t*));
+                listaLineas = (char**)realloc(listaLineas,(indexBG+1)*sizeof(char**)); 
                 
                 if(line->ncommands!=0){
 		firstCommandArguments = line->commands[0].argv;
@@ -73,7 +98,15 @@ int main(void) {
                 	//comandos ejecutables	
 
 		        }if(strcmp(firstCommandArguments[0], "jobs")==0){
-                                //mostrar [arraylist_index] status 
+                                
+
+                                
+                                 for(k=0;k<indexBG;k++){
+                                         if((kpid=waitpid(lista[k],&status,WNOHANG))<=0){
+                                                printf("[%d] - %d             %s\n", k+1, lista[k],listaLineas[k]);
+                                        }                
+                        
+                                }
                         }else{
                 
                                 if (line->redirect_input != NULL) {
@@ -143,7 +176,7 @@ int main(void) {
                                 
 		                for (i=0; i<line->ncommands; i++) {
 			                //printf("orden %d (%s):\n", i, line->commands[i].filename);
-
+                                        
                                      
                                         	             
 
@@ -182,7 +215,7 @@ int main(void) {
 					      
 					        if(execv(line->commands[i].filename, line->commands[i].argv)<0){
                                                 printf("Error al ejecutar el comando");
-                                                exit(0);
+                                                exit(status);
                                                 }
                                                
 					        //Si llega aquí es que se ha producido un error en el execvp
@@ -190,8 +223,9 @@ int main(void) {
 					        //exit(status);//regresa al wait del padre 
 		
 				        }
-				       
-				       
+				     
+                                        
+				      test = pid; 
                                 
                                 jp+=2;
 			        }
@@ -203,16 +237,18 @@ int main(void) {
                                 
                                 
                                         if (line->background != 1) {
+                                              
                                              for (k=0; k<=line->ncommands;k++){                                               	
                                                 wait(&status);
                                              }
 		                        } else {
-                                                printf("[1]\n");
-                                                 //dup2(char pid, 1)                                       
-                                                //execv("pidof " , ls)  
-                                                 // comprobar si mas de un XXXX en pid, coger el mayor
-                                                 //añadir nodo a arraylist[array_length]
-                                                 //mostrar [array_length - 1]     
+                                               listaLineas[indexBG] =  (char*)malloc(1024*sizeof(char));
+                                              lista[indexBG] = test;
+                                              strcpy(listaLineas[indexBG],strtok(buf,"&"));
+                                              indexBG++; 
+                                              printf("[%d]-%d\n",indexBG, test);
+                                                
+                                                 
                                         }
                                 
                                                               
@@ -223,14 +259,14 @@ int main(void) {
 			        dup2(backup_in, fileno(stdin));
 			        dup2(backup_out, fileno(stdout));
 			        dup2(backup_err, fileno(stderr));
-                                printf("BACKUPEADO\n");
+                              
 		     }
                
                 }else{
-                        printf("%s-msh> ", currentDirectory);
+                        printf("-msh> ");
                         continue;
                 }
-	printf("%s-msh> ", currentDirectory);	
+	printf("-msh> ");	
 	}
 	return 0;
 }
