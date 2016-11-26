@@ -49,17 +49,23 @@ int main(void) {
         pid_t *lista;
         int pidBG;
         char **listaLineas;
+	//Procesos fg
+	pid_t *listaNegra;
         
 	//Ignoramos las señales SIGINT y SIGQUIT
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN); 
+
+	int mal;
         
         indexBG = 0;
 	printf("msh> ");
 	lista = (pid_t*)malloc(sizeof(pid_t*));
 	listaLineas = (char**)malloc(sizeof(char**));
+
+	listaNegra = (pid_t*)malloc(sizeof(pid_t*));
 	while (fgets(buf, 1024, stdin)) {
-		
+		mal = 0;
                 
 		line = tokenize(buf);
 
@@ -72,12 +78,14 @@ int main(void) {
                 compruebaBGfin(indexBG,lista,listaLineas);
 		commandsNumber = line->ncommands;
 		
-                fd = (int*)malloc((commandsNumber*2)*sizeof(int*)); 
+                fd = (int*)malloc((commandsNumber*2)*sizeof(int*));
                 lista = (pid_t*)realloc(lista,(indexBG+1)*sizeof(pid_t*));
-                listaLineas = (char**)realloc(listaLineas,(indexBG+1)*sizeof(char**)); 
+                listaLineas = (char**)realloc(listaLineas,(indexBG+1)*sizeof(char**));
+
+		//listaNegra = (pid_t*)realloc(lista,(indexBG+1)*sizeof(pid_t*));
                 
                 if(line->ncommands!=0){
-		firstCommandArguments = line->commands[0].argv;
+			firstCommandArguments = line->commands[0].argv;
                         //comandos propios
 		        if(strcmp(firstCommandArguments[0], "cd")==0){// si el primer comando de los que introduzco es "cd"
 
@@ -94,7 +102,7 @@ int main(void) {
 		        }
 			else if(strcmp(firstCommandArguments[0], "jobs")==0){// si el comando es jobs
                                  for(k=0;k<indexBG;k++){
-                                         if((kpid=waitpid(lista[k],&status,WNOHANG))<=0){
+                                         if(((kpid=waitpid(lista[k],&status,WNOHANG))<=0) && (lista[k]!=listaNegra[k+1])){
                                                 printf("[%d]    %d   EJECUTANDO          %s\n", k+1, lista[k],listaLineas[k]);
                                         }                
                         
@@ -107,7 +115,10 @@ int main(void) {
 				}else{// si se especifica el pid del proceso
 					k = atoi(firstCommandArguments[1]);
 					printf("%s\n", listaLineas[k-1]);
+					// lo pasamos a primer plano (los demás procesos deben esperar por él)
+					waitpid(lista[k-1], NULL, 0);
 					// hay que borrarlo de la lista del jobs
+					listaNegra[k] = lista[k-1];
 				}
 			}
 			//comandos ejecutables
@@ -164,8 +175,8 @@ int main(void) {
 		                // creamos los pipes, el doble de comandos que haya (dos pipes por comando)
                                 for (j=0;j<line->ncommands;j++){
                                         if(pipe(fd+j*2)<0){// comando[1] (pipe[1] y pipe[0]), comando[2] (pipe[3] y pipe[2])
-                                                fprintf(stderr, "Imposible to pipe().\n%s\n", strerror(errno));     
-                                                exit(0);   
+                                                fprintf(stderr, "Imposible to pipe().\n%s\n", strerror(errno));
+                                                exit(0);
                                         }
                                 }
                                 
@@ -203,9 +214,10 @@ int main(void) {
                                                 }
 
 					      
-					        if((execv(line->commands[i].filename, line->commands[i].argv)<0)&&(strcmp(firstCommandArguments[0], "cd")!=0)){
-                                                printf("Error al ejecutar el comando\n");
-                                                exit(status);
+					        if((execv(line->commands[i].filename, line->commands[i].argv)<0)){
+							mal = 1;
+                                                	printf("Error al ejecutar el comando\n");
+                                                	exit(status);
                                                 }
                                                
 					        //Si llega aquí es que se ha producido un error en el execvp
@@ -229,13 +241,12 @@ int main(void) {
                                 	for (k=0; k<=line->ncommands;k++){                                               	
                                 		wait(&status);
                                 	}
-
 		                } else {
-                                	listaLineas[indexBG] =  (char*)malloc(1024*sizeof(char));
-                                	lista[indexBG] = pidBG;
-                                        strcpy(listaLineas[indexBG],strtok(buf,"&"));
-                                        indexBG++; 
-                                        printf("[%d]    %d\n",indexBG,pidBG);
+		                        listaLineas[indexBG] =  (char*)malloc(1024*sizeof(char));
+		                        lista[indexBG] = pidBG;
+		                        strcpy(listaLineas[indexBG],strtok(buf,"&"));
+		                        indexBG++; 
+		                        printf("[%d]    %d\n",indexBG,pidBG);
                                 }
 
 			        dup2(backup_in, fileno(stdin));
