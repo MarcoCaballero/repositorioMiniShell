@@ -10,15 +10,45 @@
 
 
 
-void compruebaBGfin(int index, pid_t *lista, char**listaLineas);
+int compruebaBGfin(int index, pid_t *lista, char**listaLineas,char**listaEstados,int isOn);
 
-void compruebaBGfin(int index, pid_t *lista, char**listaLineas){
-int kpid, status, k;      
-        for(k=0;k<index;k++){
-               if((kpid=waitpid(lista[k],&status,WNOHANG))>0){
-                        printf("[%d]    %d    HECHO         %s\n", k+1, lista[k],listaLineas[k]);
-                }                
+int compruebaIndexBG(int index,int *isOn);
+
+int compruebaBGfin(int index, pid_t *lista, char**listaLineas,char**listaEstados,int isOn){
+int kpid, newisOn, status;   
+        newisOn = isOn;   
+       
+        if((kpid=waitpid(lista[index],&status,WNOHANG))>0){
+                printf("[%d]    %d    HECHO          %s\n", index, lista[index],listaLineas[index]);
+                
+                newisOn = 0;
+                        
+        }              
+        
+        return newisOn;
+}
+
+int compruebaIndexBG(int index,int *isOn){
+int k,maximo,numActivos;
+maximo = index;
+numActivos = 0;
+
+        for(k=1;k<=index;k++){
+                if(isOn[k]==1){
+                        maximo = k;
+                        numActivos++;
+                        
+                }else{
+                
+                }
         }
+        
+        if (numActivos == 0){
+                maximo = 0;
+        }
+        
+        return maximo;
+
 }
 
 int main(void) {
@@ -27,7 +57,7 @@ int main(void) {
 	tline * line;
        
         //variables auxiliares
-	int i,j,k,jp,commandsNumber,status,indexBG,kpid;
+	int i,j,k,jp,commandsNumber,status,kpid,auxComp;
 	pid_t pid;	
         char **firstCommandArguments;
 
@@ -49,6 +79,10 @@ int main(void) {
         pid_t *lista;
         int pidBG;
         char **listaLineas;
+        char **listaEstados;
+        int *isOn;
+        int maxOnBG,indexBG;
+        
 	//Procesos fg
 	pid_t *listaNegra;
         
@@ -56,16 +90,19 @@ int main(void) {
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN); 
 
-	int mal;
-        
+	
+       
         indexBG = 0;
 	printf("msh> ");
-	lista = (pid_t*)malloc(sizeof(pid_t*));
-	listaLineas = (char**)malloc(sizeof(char**));
-
-	listaNegra = (pid_t*)malloc(sizeof(pid_t*));
+	lista = (pid_t*)malloc(2*sizeof(pid_t*));
+	listaLineas = (char**)malloc(2*sizeof(char**));
+        listaEstados = (char**)malloc(2*sizeof(char**));        
+	listaNegra = (pid_t*)malloc(2*sizeof(pid_t*));
+        isOn = (int*)malloc(2*sizeof(int*));
+      
+        
 	while (fgets(buf, 1024, stdin)) {
-		mal = 0;
+		
                 
 		line = tokenize(buf);
 
@@ -73,17 +110,28 @@ int main(void) {
 			fprintf(stderr, "Vacío\n");
 			continue;
 		}
-
+                
                 //COMPROBAR PROCESOS EN BACKGROUND (TERMINADOS ??)
-                compruebaBGfin(indexBG,lista,listaLineas);
+                
+                /*for(k=1;k<=indexBG;k++){
+                        isOn[k] = compruebaBGfin(k,lista,listaLineas,listaEstados,isOn[k]);
+                        
+                }
+                
+                indexBG = compruebaIndexBG(indexBG,isOn);*/
+                
+
+
+
+
 		commandsNumber = line->ncommands;
 		
                 fd = (int*)malloc((commandsNumber*2)*sizeof(int*));
-                lista = (pid_t*)realloc(lista,(indexBG+1)*sizeof(pid_t*));
-                listaLineas = (char**)realloc(listaLineas,(indexBG+1)*sizeof(char**));
+                lista = (pid_t*)realloc(lista,(indexBG+2)*sizeof(pid_t*));
+                listaLineas = (char**)realloc(listaLineas,(indexBG+2)*sizeof(char**));
+                listaEstados = (char**)realloc(listaEstados,(indexBG+2)*sizeof(char**));
+                isOn = (int*)realloc(isOn,(indexBG+2)*sizeof(int*));                
 
-		//listaNegra = (pid_t*)realloc(lista,(indexBG+1)*sizeof(pid_t*));
-                
                 if(line->ncommands!=0){
 			firstCommandArguments = line->commands[0].argv;
                         //comandos propios
@@ -101,28 +149,55 @@ int main(void) {
 			        getcwd(currentDirectory, sizeof(currentDirectory));
 		        }
 			else if(strcmp(firstCommandArguments[0], "jobs")==0){// si el comando es jobs
-                                 for(k=0;k<indexBG;k++){
-                                         if(((kpid=waitpid(lista[k],&status,WNOHANG))<=0) && (lista[k]!=listaNegra[k+1])){
-                                                printf("[%d]    %d   EJECUTANDO          %s\n", k+1, lista[k],listaLineas[k]);
+                               
+                                 
+                                 for(k=1;k<=indexBG;k++){
+                                         
+                                         if(isOn[k]!=0){
+                                                if(kpid=waitpid(lista[k],&status,WNOHANG)<=0){
+                                                        printf("[%d]    %d   %s          %s\n", k, lista[k],listaEstados[k],listaLineas[k]);
+                                                
+                                                }else{
+                                                        printf("[%d]    %d   HECHO (JOBS)         %s\n", k, lista[k],listaLineas[k]);
+                                                        isOn[k]=0;
+                                                        
+                                                }
+                                                
                                         }                
                         
                                 }
                         }
 			else if(strcmp(firstCommandArguments[0], "fg")==0){// si el comando es fg
 				if(line->commands[0].argc < 2){// si no se especifica qué proceso se quiere reanudar
-					printf("%s\n", listaLineas[indexBG-1]);// se ejecuta el último comando puesto en segundo plano
-					indexBG--;
+					if(indexBG > 0){
+                                                printf("%s\n", listaLineas[indexBG]);// se ejecuta el último comando puesto en segundo plano
+					        waitpid(lista[indexBG], NULL, 0);
+					        // hay que borrarlo de la lista del jobs
+					        isOn[indexBG] = 0;
+                                                
+                                                indexBG--;
+                                        }else{
+
+                                           printf("bash : fg :  actual: no existe ese trabajo\n");
+                                        }
+                                        
 				}else{// si se especifica el pid del proceso
 					k = atoi(firstCommandArguments[1]);
-					printf("%s\n", listaLineas[k-1]);
-					// lo pasamos a primer plano (los demás procesos deben esperar por él)
-					waitpid(lista[k-1], NULL, 0);
-					// hay que borrarlo de la lista del jobs
-					listaNegra[k] = lista[k-1];
+                                        if (k <= indexBG){
+                                                printf("%s\n", listaLineas[k]);
+					        // lo pasamos a primer plano (los demás procesos deben esperar por él)
+					        waitpid(lista[k], NULL, 0);
+					        // hay que borrarlo de la lista del jobs
+					        isOn[k] = 0;
+                                        }else{
+                                                printf("bash : fg :  %d: no existe ese trabajo\n", k);
+                                        }
+					
 				}
-			}
+			
 			//comandos ejecutables
-			else{
+			}else{
+                                 
                 		// si hay redicrección de entrada (<)
                                 if (line->redirect_input != NULL) {
 			                printf("redirección de entrada: %s\n", line->redirect_input);
@@ -172,6 +247,14 @@ int main(void) {
 				                fclose(file);
 			                }
 		                }
+
+
+                                                                        
+
+
+
+
+
 		                // creamos los pipes, el doble de comandos que haya (dos pipes por comando)
                                 for (j=0;j<line->ncommands;j++){
                                         if(pipe(fd+j*2)<0){// comando[1] (pipe[1] y pipe[0]), comando[2] (pipe[3] y pipe[2])
@@ -213,19 +296,27 @@ int main(void) {
                                                         close(fd[k]);
                                                 }
 
-					      
-					        if((execv(line->commands[i].filename, line->commands[i].argv)<0)){
-							mal = 1;
-                                                	printf("Error al ejecutar el comando\n");
+					     
+                                                
+                                                
+                                                    
+					        if((execv(line->commands[i].filename, line->commands[i].argv))<0){
+                                                       
+                                                	fprintf(stderr, "COMANDO ERRÓNEO .\n%s\n", strerror(errno));
                                                 	exit(status);
                                                 }
                                                
 					        //Si llega aquí es que se ha producido un error en el execvp
 					        //printf("Error al ejecutar el comando: \n%s\n", strerror(errno));
 					        //exit(status);//regresa al wait del padre 
+                                                
 		
-				        }
-                                        
+				            }                              
+                                       
+                                                
+
+
+
 				      	pidBG = pid; // nos sirve si vamos a ejecutar un comando en background
 
                                 	jp+=2;
@@ -234,19 +325,25 @@ int main(void) {
                                 for (k=0; k<2*line->ncommands;k++){
                                         close(fd[k]);
                                 }
-                                
+                                             
                                 // Si hay algún comando a ejecutar en background
                                 if (line->background != 1) {
-
-                                	for (k=0; k<=line->ncommands;k++){                                               	
+                                	for (k=0; k<=line->ncommands;k++)                                            	
                                 		wait(&status);
-                                	}
+                                	
 		                } else {
-		                        listaLineas[indexBG] =  (char*)malloc(1024*sizeof(char));
+                                        
+                                        indexBG++;        
+                                        listaLineas[indexBG] =  (char*)malloc(1024*sizeof(char));
+                                        listaEstados[indexBG] = (char*)malloc(1024*sizeof(char));
 		                        lista[indexBG] = pidBG;
 		                        strcpy(listaLineas[indexBG],strtok(buf,"&"));
-		                        indexBG++; 
+                                        isOn[indexBG] = 1;                                                       
+                                        strcpy(listaEstados[indexBG],"EJECUTANDO");
+                                      		                        
 		                        printf("[%d]    %d\n",indexBG,pidBG);
+                                                 
+		                      
                                 }
 
 			        dup2(backup_in, fileno(stdin));
@@ -254,8 +351,20 @@ int main(void) {
 			        dup2(backup_err, fileno(stderr));
                               
 		     }// fin else (comandos ejecutables)
-               
+                     for(k=1;k<=indexBG;k++){
+                        isOn[k] = compruebaBGfin(k,lista,listaLineas,listaEstados,isOn[k]);
+                        
+                        }
+                
+                indexBG = compruebaIndexBG(indexBG,isOn);   
                 }else{// si no hay comandos
+                       
+                        for(k=1;k<=indexBG;k++){
+                        isOn[k] = compruebaBGfin(k,lista,listaLineas,listaEstados,isOn[k]);
+                        
+                }
+                
+                indexBG = compruebaIndexBG(indexBG,isOn);
                         printf("msh> ");
                         continue;
                 }// fin if(line->ncommands!=0)
